@@ -7,3 +7,28 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: #ffffff;
+  font-family: system-ui, sans-serif;
+  font-size: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.overlay.hidden {
+  opacity: 0;
+}
+
+.overlay.error #overlayMessage {
+  color: #ff6b6b;
+}
