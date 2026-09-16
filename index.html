@@ -9,7 +9,12 @@
   <body>
     <div id="globeViz"></div>
     <div id="overlay" class="overlay">
-      <div id="overlayMessage">Loading GitHub activity…</div>
+      <div id="overlayMessage">Loading geographic data…</div>
+    </div>
+    <div id="status" class="status hidden" aria-live="polite">
+      <span id="statusUpdating" class="status-updating"></span>
+      <span id="statusState" class="status-state">LIVE</span>
+      <span id="statusDetail"></span>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>

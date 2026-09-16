@@ -146,7 +146,8 @@ const CANONICAL_COUNTRY = {
   boston: 'US',
   houston: 'US',
   miami: 'US',
-  brooklyn: 'US'
+  brooklyn: 'US',
+  'new york': 'US'
 };
 
 // Country code -> name of a major city to fall back to.
@@ -169,21 +170,37 @@ const FALLBACK_BY_CODE = {
   RU: { city: 'Moscow' }
 };
 
+// Normalized lookup keys for a city name. Some datasets spell famous cities as
+// "<Name> City" (e.g. "New York City"); we also index the bare "<Name>" alias
+// so a location like "New York" or "New York, NY" still matches the canonical
+// city WITHOUT substring matching. The alias points at the same city entry, so
+// the canonical display name and its real coordinates are always used.
+function cityKeys(name) {
+  const key = normalizeLocation(name);
+  if (!key) return [];
+
+  const keys = [key];
+  if (key.endsWith(' city')) {
+    const alias = key.slice(0, -5).trim();
+    if (alias.length >= 4) keys.push(alias);
+  }
+  return keys;
+}
+
 // Build a name-indexed Map once. Subsequent lookups are O(1) instead of
 // scanning all ~169k entries per user.
 export function buildCityIndex(cities) {
   const index = new Map();
 
   for (const city of cities) {
-    const key = normalizeLocation(city.name);
-    if (!key) continue;
-
-    let bucket = index.get(key);
-    if (!bucket) {
-      bucket = [];
-      index.set(key, bucket);
+    for (const key of cityKeys(city.name)) {
+      let bucket = index.get(key);
+      if (!bucket) {
+        bucket = [];
+        index.set(key, bucket);
+      }
+      bucket.push(city);
     }
-    bucket.push(city);
   }
 
   return index;

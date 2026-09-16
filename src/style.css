@@ -1,11 +1,15 @@
+html,
 body {
   margin: 0;
+  padding: 0;
   overflow: hidden;
+  background: #000000;
 }
 
 #globeViz {
   width: 100vw;
   height: 100vh;
+  background: #000000;
 }
 
 .overlay {
@@ -31,4 +35,276 @@ body {
 
 .overlay.error #overlayMessage {
   color: #ff6b6b;
+}
+
+/* Live status indicator (bottom-left, never blocks the globe) */
+
+.status {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 70vw;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #dfe6e9;
+  font: 12px system-ui, sans-serif;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.status.hidden {
+  opacity: 0;
+}
+
+.status-state {
+  font-weight: 600;
+  color: #00ff88;
+}
+
+.status.warning .status-state {
+  color: #ffd166;
+}
+
+.status-updating {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00ff88;
+  display: none;
+}
+
+.status.updating .status-updating {
+  display: inline-block;
+  animation: statusPulse 1s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Floating event inspection cards (cyber/neon, compact, globe stays hero) */
+
+.ev-hover-card,
+.ev-selected-panel {
+  --ev-accent: #00ff88;
+  position: fixed;
+  z-index: 30;
+  width: min(300px, calc(100vw - 24px));
+  padding: 12px 14px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 2px solid var(--ev-accent);
+  background: rgba(5, 8, 10, 0.92);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.6),
+    0 0 18px color-mix(in srgb, var(--ev-accent) 22%, transparent);
+  color: #e8eef0;
+  font: 13px/1.45 system-ui, -apple-system, sans-serif;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+.ev-hover-card {
+  animation: evFadeIn 0.12s ease-out;
+}
+
+.ev-selected-panel {
+  top: 12px;
+  right: 12px;
+  left: auto;
+  pointer-events: auto;
+  animation: evFadeIn 0.16s ease-out;
+}
+
+.ev-type {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--ev-accent);
+}
+
+.ev-type .ev-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ev-accent);
+  box-shadow: 0 0 8px var(--ev-accent);
+  flex: none;
+}
+
+.ev-repo {
+  display: block;
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+a.ev-repo:hover {
+  text-decoration: underline;
+}
+
+.ev-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #9fb3b8;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ev-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #dfe6e9;
+}
+
+.ev-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.ev-detail {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--ev-accent);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  color: #c9d6da;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ev-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.ev-meta-item {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #b9c8cc;
+}
+
+.ev-time {
+  margin-top: 7px;
+  font-size: 11px;
+  color: #7d8f94;
+}
+
+.ev-links {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.ev-links a {
+  color: var(--ev-accent);
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.ev-links a:hover {
+  text-decoration: underline;
+}
+
+.ev-sep {
+  margin: 0 6px;
+  color: #556;
+}
+
+.ev-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9fb3b8;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ev-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ev-resume {
+  margin-top: 9px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--ev-accent) 45%, transparent);
+  background: transparent;
+  color: var(--ev-accent);
+  font: 600 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.ev-resume:hover {
+  background: color-mix(in srgb, var(--ev-accent) 14%, transparent);
+}
+
+@keyframes evFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-hover-card,
+  .ev-selected-panel {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .ev-selected-panel {
+    top: auto;
+    right: 8px;
+    bottom: 52px;
+    left: 8px;
+    width: auto;
+  }
 }
