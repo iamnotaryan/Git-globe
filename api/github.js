@@ -69,7 +69,12 @@ export default async function handler(req, res) {
         res.status(400).json({ error: 'invalid_per_page' });
         return;
       }
-      const r = await relay(`/events?per_page=${Number(perPage)}`);
+      const page = url.searchParams.get('page') || '1';
+      if (!/^\d+$/.test(page) || Number(page) < 1 || Number(page) > 10) {
+        res.status(400).json({ error: 'invalid_page' });
+        return;
+      }
+      const r = await relay(`/events?per_page=${Number(perPage)}&page=${Number(page)}`);
       res.status(r.status).setHeader('Content-Type', r.contentType).send(r.body);
       return;
     }

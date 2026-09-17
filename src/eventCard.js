@@ -89,7 +89,7 @@ export function eventCardBodyHtml(norm, color, { compact = false, interactive = 
     lines.push(
       `<div class="ev-links"><a href="${escapeHtml(repoUrl)}" target="_blank" rel="noopener noreferrer">View repository ↗</a>` +
         `<span class="ev-sep">·</span>` +
-        `<a href="${escapeHtml(actorUrl)}" target="_blank" rel="noopener noreferrer">@${escapeHtml(norm.username)}</a></div>`
+        `<a href="${escapeHtml(actorUrl)}" target="_blank" rel="noopener noreferrer">View actor ↗</a></div>`
     );
   } else if (!compact && repoUrl && interactive) {
     lines.push(

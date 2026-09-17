@@ -1,13 +1,19 @@
 # GitHub Globe
 
-A Vite + JavaScript app that visualizes **live** GitHub activity as glowing
-source → destination arcs on a 3D globe using [globe.gl](https://globe.gl) and
-Three.js.
+A Vite + JavaScript app that visualizes **recent live GitHub activity** as
+glowing source → destination arcs on a 3D globe using
+[globe.gl](https://globe.gl) and Three.js.
+
+> **Scope note:** GitHub Globe shows *recent public activity* sampled from the
+> GitHub public Events API — a recent-activity feed, not a complete real-time
+> stream of every GitHub event worldwide. The status bar always says
+> "LIVE" (referring to the live-updating feed), never "all GitHub activity".
 
 Pure black background · black globe · neon red country borders · cyan
 atmosphere · short green/cyan/yellow activity spikes · animated green rings ·
 glowing cyberpunk arcs (animated dashed data-packets with bloom) · live
-polling · auto-rotation.
+polling · auto-rotation with Start/Stop control · event-type filters ·
+hover cards + clickable event inspection.
 
 ## What GitHub Globe does
 
@@ -19,8 +25,12 @@ polling · auto-rotation.
 - Draws an animated, glowing **SOURCE → DESTINATION arc** whenever both
   endpoints resolve — a curved, dashed "data packet" that travels from source
   to destination.
-- **Polls** the Events API periodically and keeps adding *new* activity
+- Polls the Events API periodically and keeps adding *new* activity
   without reloading the page or recreating the globe.
+- Hovering a point/arc shows a floating event card; clicking selects the
+  event, pauses rotation, and pins a details panel with repository/actor links.
+- A bottom-center control cluster offers Start/Stop rotation plus an
+  event-type filter legend (ALL | PUSH | PR | ISSUES | WATCH | FORK).
 
 ## Architecture / data flow
 
@@ -35,13 +45,19 @@ src/
   events.js   pure event-payload analysis: destinationCandidates(),
               participantFromPayload(), repoOwnerFromEvent(),
               repoLocationFromEvent()
-  main.js     orchestration: globe lifecycle, polling, dedup, retention,
+  eventDetails.js  normalized event model + human-readable per-type
+              descriptions (Push/PR/Issues/Watch/Fork/Create/…), time-ago
+  eventCard.js     floating hover card + persistent selection panel DOM
+  main.js     orchestration: globe lifecycle, pagination, polling, dedup,
+              retention, filtering, interaction/rotation state,
               source→destination resolution, points + arcs, status UI, bloom
   github.js   browser data access: calls OUR /api/* proxy (no secrets, no
-              import.meta.env token); batched + cached profile fetching
+              import.meta.env token); paginated event fetching, batched +
+              cached profile fetching
   geo.js      location matching: normalization, city map index, aliases,
               country/state hints, country fallbacks
-  style.css   layout (pure black) + loading overlay + live status bar
+  style.css   layout (pure black) + loading overlay + live status bar +
+              controls + event cards
 ```
 
 Data flow:
@@ -65,8 +81,11 @@ Globe visualization
    (including a `"City"`-name alias, e.g. "New York" ↔ "New York City").
 3. The Globe is created **once** (black space, borders, atmosphere, controls,
    auto-rotation); from then on only its point/ring/arc data sets are replaced.
-4. `getEvents()` fetches one page (100 events) from **our** `/api/events`
-   proxy, which forwards to the GitHub Events API with the server-side token.
+4. `getEventsPages()` fetches the event pool from **our** `/api/events`
+    proxy (initial load: 3 pages × 100; steady-state polls: page 1 only),
+    which forwards to the GitHub Events API with the server-side token.
+    Pages are fetched sequentially, deduplicated by event id, and a failed
+    later page only truncates the batch — previously retrieved pages are kept.
 5. For every fresh event, `destinationCandidates()` (in `events.js`) builds an
    ordered destination list: payload participants, then the repository owner
    from `event.repo.name`.
@@ -160,8 +179,8 @@ Coverage is measured and reported so a shortfall is provably a data artifact:
   valid destination: …, no destination: …) [noCandidate / locationUnresolved /
   sameLocation]` on every poll, plus a one-shot session
   `[coverage]` report at boot.
-- Status bar: `LIVE · last update Xs ago · A activities · B arcs · C no
-  destination`.
+- Status bar: `LIVE · Last update Xs ago · A activities · B arcs · C no
+  destination` (counts follow the active filter; the store always keeps more).
 
 ### Visual treatment
 
@@ -202,21 +221,26 @@ the globe — everything else is pure black.
 
 ## Live polling
 
-- Polls `GET /api/events` (proxied to GitHub `GET /events`) every **60 seconds**.
+- **Initial load:** fetches up to **3 pages × 100 events** (`page=1..3`) so
+  the globe starts rich (~300 raw events max; typically far fewer survive
+  geographic resolution).
+- **Steady-state polls:** fetch **page 1 only** every **60 seconds** and merge
+  unseen event ids into the existing store — cheap and deduplicated.
 - Polls never overlap: the next poll is scheduled only after the previous one
   finishes.
 - Each poll is cheap: one events request, plus profile requests **only** for
   usernames never seen before (actors, participants, and repo owners all use
   the same cache).
-- Events already on the globe are skipped by their stable `event.id`, so
-  repeated polls don't create duplicates. When a fresh event arrives:
+- Events already processed are skipped via a persistent `processedIds` set
+  (stable `event.id`), so repeated polls don't re-resolve anything. When a
+  fresh event arrives:
   dedupe → resolve source profile (cache) → pick destination → resolve its
   profile/location (cache) → create point/ring → create arc if valid → update
   the existing Globe instance. The Globe, country polygons and camera are
   never recreated or reset.
 - On a 401/403 (e.g. rate limit) the interval doubles up to a 5-minute
   ceiling; on the next success it resets to 60s. Existing activity stays
-  visible the whole time.
+  visible the whole time, and polling never touches the rotation state.
 
 ## Profile caching
 
@@ -253,11 +277,13 @@ the globe — everything else is pure black.
 
 ## API rate-limit strategy
 
-- Uses a single page of events (no deep pagination).
+- Controlled pagination only: up to 3 event pages on initial load, 1 page per
+  poll — never deep pagination, never dozens of requests.
 - Batches profile requests 10 at a time with a small delay between batches.
 - Skips profile requests for cached actors entirely.
 - Backs off its polling interval on 401/403 and keeps old data on screen.
-- One request per poll in steady state.
+- A failed page never clears existing activities; a failed later page only
+  truncates that batch.
 
 ## Location matching
 
@@ -280,15 +306,61 @@ the globe — everything else is pure black.
 
 ## Arc tooltip
 
-Hovering an arc shows a concise label:
+Hovering a point or arc shows a floating event card near the cursor:
+
+- event type with its accent color, repository full name, actor + avatar,
+  human-readable action (e.g. "pushed 3 commits to main"), commit/PR/issue
+  detail when available, and relative time.
+
+Clicking (or tapping) a point/arc **selects** the event: rotation pauses, the
+point grows with a hot core, its ring keeps pulsing in the event color, its
+arc brightens/thickens, and a persistent panel pins the full details with
+**View repository ↗** and **View actor ↗** links (real GitHub URLs, no extra
+API calls). Closing the panel (×, "Resume rotation", or `Esc`) restores the
+normal appearance and resumes rotation per the manual toggle.
+
+## Event filtering
+
+A compact legend below the globe filters the *visible* points, rings, arcs
+and counts without deleting anything from the underlying store:
 
 ```
-GitHub activity
-SOURCE → DESTINATION
-EVENT TYPE
+ALL | PUSH | PR | ISSUES | WATCH | FORK
 ```
 
-(e.g. `alice → bob` / `IssuesEvent`)
+`PUSH` shows only `PushEvent`, `PR` only `PullRequestEvent`, and so on.
+If the selected event is filtered out of view, its selection is safely
+cleared (panel closes, rotation resumes per the manual toggle).
+
+## Interaction + rotation state
+
+One centralized model drives rotation — the globe actually rotates only when
+`rotationEnabled && !hoveredEvent && !selectedEvent`:
+
+- **⏸/▶ Start/Stop Rotation button** (bottom-center, always visible) toggles
+  the manual `rotationEnabled` intent — the same mechanism hover and selection
+  use, never a second animation loop.
+- **Hover** pauses temporarily without changing `rotationEnabled`; leaving
+  resumes only if nothing else holds it.
+- **Click** selects and pauses; **close/`Esc`** clears and resumes only if
+  `rotationEnabled` is still true — a manual Stop is never overridden.
+- Polling and filtering never restart rotation on their own.
+
+Hover is never the only path: click/tap always opens the persistent details
+panel, and all buttons carry accessible labels.
+
+## Limitations
+
+- The GitHub public Events API returns **recent public activity** (a sampled
+  feed), not a complete real-time stream of every GitHub event worldwide.
+  Counts on screen reflect *resolved, geolocated* activity, which is a small
+  fraction of raw events (most actors are bots or have no profile location).
+- Repository metadata in cards (description, language, stars/forks) appears
+  only when GitHub embeds it in the event payload — the app never makes extra
+  per-hover/per-panel API calls to enrich it.
+- `MAX_ACTIVITIES` (200) caps rendered points/rings/arcs for performance;
+  older entries are evicted newest-first and coordinates are never invented
+  to inflate the count.
 
 ## Local setup
 

@@ -70,8 +70,18 @@ function githubProxyPlugin() {
             sendJson(res, 400, { error: 'invalid_per_page' });
             return;
           }
+          // Controlled pagination: only the pages the client explicitly asks
+          // for (initial load asks for a few, steady-state polls ask for one).
+          const page = url.searchParams.get('page') || '1';
+          if (!/^\d+$/.test(page) || Number(page) < 1 || Number(page) > 10) {
+            sendJson(res, 400, { error: 'invalid_page' });
+            return;
+          }
           try {
-            const result = await forwardToGitHub(`/events?per_page=${Number(perPage)}`, token);
+            const result = await forwardToGitHub(
+              `/events?per_page=${Number(perPage)}&page=${Number(page)}`,
+              token
+            );
             relayUpstream(res, result);
           } catch (err) {
             console.error('[api/events] proxy failure:', err?.message || err);

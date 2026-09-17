@@ -1,0 +1,28 @@
+<!DOCTYPE html><html><body style="margin:0;background:#111;color:#0f0;font:13px/1.2 monospace">
+<iframe id="app" src="/" style="border:0;width:100vw;height:40vh"></iframe>
+<pre id="out">waiting…</pre>
+<img src="http://127.0.0.1:5175/slow" width="1" height="1">
+<script>
+const iv = setInterval(() => {
+  try {
+    const w = document.getElementById('app').contentWindow;
+    const d = document.getElementById('app').contentDocument;
+    if (!w.__sunDebug) { document.getElementById('out').textContent = 'no hook yet'; return; }
+    clearInterval(iv);
+    const inj = d.createElement('script');
+    inj.textContent = `(${function () {
+      function snap() {
+        try {
+          parent.document.getElementById('out').textContent =
+            'SNAP1=' + parent.document.getElementById('app').contentWindow.__sunDebug() +
+            ' status=' + document.getElementById('statusDetail').textContent;
+        } catch (e) { parent.document.getElementById('out').textContent = 'snap ERR ' + e; }
+        setTimeout(snap, 5000);
+      }
+      snap();
+    }.toString()})();`;
+    d.body.appendChild(inj);
+    document.getElementById('out').textContent = 'hook found, sampling…';
+  } catch (e) { document.getElementById('out').textContent = 'ERR ' + e; }
+}, 3000);
+</script></body></html>

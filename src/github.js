@@ -59,10 +59,13 @@ export async function getApiStatus() {
 
 // Fetch a single page of public GitHub events via the local proxy (the
 // primary recent-event source). Errors carry HTTP status only — no secrets.
-export async function getEvents() {
+export async function getEvents(page = 1, perPage = EVENTS_PER_PAGE) {
+  const safePage = Number.isInteger(page) && page >= 1 ? page : 1;
+  const safePerPage =
+    Number.isInteger(perPage) && perPage >= 1 && perPage <= 100 ? perPage : EVENTS_PER_PAGE;
   let response;
   try {
-    response = await fetch(apiUrl(`/events?per_page=${EVENTS_PER_PAGE}`));
+    response = await fetch(apiUrl(`/events?per_page=${safePerPage}&page=${safePage}`));
   } catch {
     throw new GitHubApiError(503, 'Local API proxy unreachable — is `npm run dev` serving /api?');
   }
@@ -73,6 +76,44 @@ export async function getEvents() {
   }
 
   return response.json();
+}
+
+// Fetch up to `maxPages` of events (page 1 first), deduplicated by event id.
+// A failed page does not fail the whole batch: successfully retrieved pages
+// are used as-is, so a partial outage still enriches the globe. Callers must
+// only request a small, controlled number of pages.
+export async function getEventsPages(maxPages = 1, perPage = EVENTS_PER_PAGE) {
+  const pages = Math.max(1, Math.min(Math.floor(maxPages) || 1, 10));
+  const seen = new Set();
+  const merged = [];
+
+  for (let page = 1; page <= pages; page++) {
+    let events;
+    try {
+      events = await getEvents(page, perPage);
+    } catch (err) {
+      // Page 1 failing is fatal (nothing to show for this sync); later pages
+      // failing just truncate the batch — keep what already arrived.
+      if (page === 1) throw err;
+      console.error(`GitHub events page ${page} failed; using pages retrieved so far.`, err);
+      break;
+    }
+
+    if (!Array.isArray(events) || events.length === 0) break;
+
+    for (const event of events) {
+      const id = event?.id ?? `${event?.actor?.login}:${event?.type}:${event?.created_at}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push(event);
+    }
+
+    // A short page means the feed is exhausted — stop early instead of
+    // requesting empty follow-ups.
+    if (events.length < perPage) break;
+  }
+
+  return merged;
 }
 
 // Fetch one profile through the proxy and record its outcome in the shared

@@ -16,6 +16,17 @@
       <span id="statusState" class="status-state">LIVE</span>
       <span id="statusDetail"></span>
     </div>
+    <div id="controls" class="controls">
+      <button id="rotationToggle" class="control-button" type="button" aria-pressed="true" aria-label="Stop globe rotation">⏸ Stop Rotation</button>
+      <div id="filters" class="filters" role="group" aria-label="Filter events by type">
+        <button type="button" class="filter-button is-active" data-filter="all" aria-pressed="true">ALL</button>
+        <button type="button" class="filter-button" data-filter="push" aria-pressed="false">PUSH</button>
+        <button type="button" class="filter-button" data-filter="pr" aria-pressed="false">PR</button>
+        <button type="button" class="filter-button" data-filter="issues" aria-pressed="false">ISSUES</button>
+        <button type="button" class="filter-button" data-filter="watch" aria-pressed="false">WATCH</button>
+        <button type="button" class="filter-button" data-filter="fork" aria-pressed="false">FORK</button>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
